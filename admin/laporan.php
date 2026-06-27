@@ -90,7 +90,7 @@ $detail_pinjam = $stmt3->get_result();
         <div class="metric">
           <div class="metric-label">📥 Transaksi Peminjaman</div>
           <div class="metric-value"><?= (int)$ringkasan_pinjam['jml_transaksi'] ?></div>
-          <div class="metric-sub"><?= (int)$ringkasan_pinjam['jml_eksemplar'] ?> eksemplar dipinjam</div>
+          <div class="metric-sub"><?= (int)$ringkasan_pinjam['jml_eksemplar'] ?> Buku dipinjam</div>
         </div>
         <div class="metric">
           <div class="metric-label">📤 Transaksi Pengembalian</div>

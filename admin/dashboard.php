@@ -58,7 +58,7 @@ $peminjaman_terbaru = $koneksi->query("
         <div class="metric">
           <div class="metric-label">📚 Judul Buku</div>
           <div class="metric-value"><?= $total_judul ?></div>
-          <div class="metric-sub"><?= $total_buku ?> total eksemplar</div>
+          <div class="metric-sub"><?= $total_buku ?> total buku</div>
         </div>
         <div class="metric">
           <div class="metric-label">🔄 Sedang Dipinjam</div>

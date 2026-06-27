@@ -84,9 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_peminjaman']))
 $daftar_anggota = $koneksi->query("SELECT id_anggota, nama_anggota FROM anggota ORDER BY nama_anggota ASC");
 $daftar_buku = $koneksi->query("SELECT kode_buku, judul_buku, stok FROM buku WHERE stok > 0 ORDER BY judul_buku ASC");
 
+const BATAS_HARI_PINJAM = 7; // sama dengan aturan di pengembalian.php
+
 // ===== AMBIL DATA PEMINJAMAN UNTUK DITAMPILKAN =====
+// hari_dipinjam = sudah berapa hari sejak tanggal_pinjam sampai HARI INI (real-time, bukan tanggal_kembali)
 $result = $koneksi->query("
     SELECT pm.id_peminjaman, a.nama_anggota, pt.nama_petugas, pm.tanggal_pinjam,
+           DATEDIFF(CURDATE(), pm.tanggal_pinjam) AS hari_dipinjam,
            GROUP_CONCAT(CONCAT(b.judul_buku, ' (', dp.jumlah, ')') SEPARATOR ', ') AS daftar_buku,
            EXISTS(SELECT 1 FROM pengembalian pk WHERE pk.id_peminjaman = pm.id_peminjaman) AS sudah_kembali
     FROM peminjaman pm
@@ -96,6 +100,24 @@ $result = $koneksi->query("
     LEFT JOIN buku b ON dp.kode_buku = b.kode_buku
     GROUP BY pm.id_peminjaman
     ORDER BY pm.id_peminjaman DESC
+");
+
+// ===== PEMINJAMAN YANG SEDANG TELAT (belum dikembalikan, sudah lewat batas hari) =====
+// Dipakai untuk kasih tahu petugas siapa yang perlu dihubungi (nomor telepon ditampilkan)
+$sedang_telat = $koneksi->query("
+    SELECT pm.id_peminjaman, a.nama_anggota, pm.tanggal_pinjam,
+           DATEDIFF(CURDATE(), pm.tanggal_pinjam) AS hari_dipinjam,
+           GROUP_CONCAT(DISTINCT b.judul_buku SEPARATOR ', ') AS daftar_buku,
+           GROUP_CONCAT(DISTINCT nt.nomor_telepon SEPARATOR ', ') AS daftar_telepon
+    FROM peminjaman pm
+    JOIN anggota a ON pm.id_anggota = a.id_anggota
+    LEFT JOIN detail_peminjaman dp ON pm.id_peminjaman = dp.id_peminjaman
+    LEFT JOIN buku b ON dp.kode_buku = b.kode_buku
+    LEFT JOIN nomor_telepon nt ON nt.id_anggota = a.id_anggota
+    WHERE NOT EXISTS (SELECT 1 FROM pengembalian pk WHERE pk.id_peminjaman = pm.id_peminjaman)
+      AND DATEDIFF(CURDATE(), pm.tanggal_pinjam) > " . BATAS_HARI_PINJAM . "
+    GROUP BY pm.id_peminjaman
+    ORDER BY hari_dipinjam DESC
 ");
 ?>
 <!DOCTYPE html>
@@ -176,6 +198,31 @@ $result = $koneksi->query("
           <?php endif; ?>
         </div>
 
+        <!-- PEMINJAMAN TERLAMBAT (belum dikembalikan, sudah lewat batas hari) -->
+        <?php if ($sedang_telat->num_rows > 0): ?>
+        <div class="card" style="flex-basis:100%; border-left:4px solid #A32D2D;">
+          <div class="card-header">
+            <span class="card-title">⏰ Peminjaman Terlambat | Perlu Dihubungi (<?= $sedang_telat->num_rows ?>)</span>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Anggota</th><th>Buku Dipinjam</th><th>Tgl Pinjam</th><th>Sudah Berapa Hari</th><th>Nomor Telepon</th></tr>
+            </thead>
+            <tbody>
+              <?php while ($t = $sedang_telat->fetch_assoc()): ?>
+                <tr>
+                  <td><?= htmlspecialchars($t['nama_anggota']) ?></td>
+                  <td><?= htmlspecialchars($t['daftar_buku'] ?? '-') ?></td>
+                  <td><?= date('d M Y', strtotime($t['tanggal_pinjam'])) ?></td>
+                  <td><span class="badge badge-danger"><?= $t['hari_dipinjam'] ?> hari</span></td>
+                  <td><?= htmlspecialchars($t['daftar_telepon'] ?? 'Belum ada nomor telepon') ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+        <?php endif; ?>
+
         <!-- TABEL PEMINJAMAN -->
         <div class="card" style="flex:1; min-width:400px;">
           <div class="card-header">
@@ -197,6 +244,8 @@ $result = $koneksi->query("
                     <td>
                       <?php if ($row['sudah_kembali']): ?>
                         <span class="badge badge-success">Selesai</span>
+                      <?php elseif ($row['hari_dipinjam'] > BATAS_HARI_PINJAM): ?>
+                        <span class="badge badge-danger">Telat <?= $row['hari_dipinjam'] ?> hari</span>
                       <?php else: ?>
                         <span class="badge badge-warning">Dipinjam</span>
                       <?php endif; ?>
