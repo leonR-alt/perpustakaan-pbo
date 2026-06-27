@@ -28,7 +28,7 @@ if (isset($_GET['hapus'])) {
 
 // ===== TAMBAH BUKU BARU =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_buku'])) {
-    $kode_buku = $_POST['kode_buku'];
+    $kode_buku = strtoupper(trim($_POST['kode_buku'])); // otomatis kapital semua, biar konsisten
     $isbn = $_POST['isbn'];
     $judul_buku = $_POST['judul_buku'];
     $id_penerbit = $_POST['id_penerbit'] !== "" ? (int)$_POST['id_penerbit'] : null;
