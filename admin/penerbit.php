@@ -8,16 +8,22 @@ $tipe_pesan = "";
 // ===== HAPUS PENERBIT =====
 if (isset($_GET['hapus'])) {
     $id = (int)$_GET['hapus'];
-    $stmt = $koneksi->prepare("DELETE FROM penerbit WHERE id_penerbit = ?");
-    $stmt->bind_param("i", $id);
-    if ($stmt->execute()) {
+    try {
+        $stmt = $koneksi->prepare("DELETE FROM penerbit WHERE id_penerbit = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
         $pesan = "Penerbit berhasil dihapus.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menghapus. Pastikan penerbit ini tidak memiliki buku terdaftar.";
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1451) {
+            $pesan = "Gagal menghapus. Penerbit ini masih memiliki buku terdaftar.";
+        } else {
+            $pesan = "Gagal menghapus: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== TAMBAH PENERBIT BARU =====
@@ -26,17 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_penerbit'])) {
     $alamat = $_POST['alamat'];
     $nib = $_POST['nib'];
 
-    $stmt = $koneksi->prepare("INSERT INTO penerbit (nama_penerbit, alamat, nib) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $nama, $alamat, $nib);
+    try {
+        $stmt = $koneksi->prepare("INSERT INTO penerbit (nama_penerbit, alamat, nib) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $nama, $alamat, $nib);
+        $stmt->execute();
 
-    if ($stmt->execute()) {
         $pesan = "Penerbit baru berhasil ditambahkan.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menyimpan: " . $stmt->error;
+    } catch (mysqli_sql_exception $e) {
+        $pesan = "Gagal menyimpan: " . $e->getMessage();
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== AMBIL DATA UNTUK DITAMPILKAN =====

@@ -8,16 +8,18 @@ $tipe_pesan = "";
 // ===== TANDAI DENDA SUDAH DIBAYAR =====
 if (isset($_GET['bayar'])) {
     $id_denda = (int)$_GET['bayar'];
-    $stmt = $koneksi->prepare("UPDATE denda SET status_bayar = 'sudah bayar' WHERE id_denda = ?");
-    $stmt->bind_param("i", $id_denda);
-    if ($stmt->execute()) {
+    try {
+        $stmt = $koneksi->prepare("UPDATE denda SET status_bayar = 'sudah bayar' WHERE id_denda = ?");
+        $stmt->bind_param("i", $id_denda);
+        $stmt->execute();
         $pesan = "Denda berhasil ditandai sebagai sudah dibayar.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal memperbarui status denda.";
+    } catch (mysqli_sql_exception $e) {
+        $pesan = "Gagal memperbarui status denda: " . $e->getMessage();
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== FILTER STATUS (opsional, lewat query string) =====

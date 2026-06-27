@@ -8,16 +8,22 @@ $tipe_pesan = "";
 // ===== HAPUS BUKU =====
 if (isset($_GET['hapus'])) {
     $kode = $_GET['hapus'];
-    $stmt = $koneksi->prepare("DELETE FROM buku WHERE kode_buku = ?");
-    $stmt->bind_param("s", $kode);
-    if ($stmt->execute()) {
+    try {
+        $stmt = $koneksi->prepare("DELETE FROM buku WHERE kode_buku = ?");
+        $stmt->bind_param("s", $kode);
+        $stmt->execute();
         $pesan = "Buku berhasil dihapus.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menghapus. Pastikan buku ini tidak memiliki riwayat peminjaman.";
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1451) {
+            $pesan = "Gagal menghapus. Buku ini masih memiliki riwayat peminjaman.";
+        } else {
+            $pesan = "Gagal menghapus: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== TAMBAH BUKU BARU =====
@@ -30,10 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_buku'])) {
     $stok = (int)$_POST['stok'];
     $pengarang_list = $_POST['id_pengarang']; // array, bisa lebih dari satu
 
-    $stmt = $koneksi->prepare("INSERT INTO buku (kode_buku, isbn, judul_buku, id_penerbit, tahun_terbit, stok) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssiii", $kode_buku, $isbn, $judul_buku, $id_penerbit, $tahun_terbit, $stok);
+    try {
+        $stmt = $koneksi->prepare("INSERT INTO buku (kode_buku, isbn, judul_buku, id_penerbit, tahun_terbit, stok) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssiii", $kode_buku, $isbn, $judul_buku, $id_penerbit, $tahun_terbit, $stok);
+        $stmt->execute();
 
-    if ($stmt->execute()) {
         // Simpan relasi many-to-many ke pengarang (skip yang kosong/duplikat)
         $stmtRel = $koneksi->prepare("INSERT INTO buku_pengarang (kode_buku, id_pengarang) VALUES (?, ?)");
         $tersimpan = [];
@@ -49,11 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_buku'])) {
 
         $pesan = "Buku baru berhasil ditambahkan.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menyimpan: " . $stmt->error;
+
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1062) {
+            $pesan = "Gagal: Kode buku tersebut sudah dipakai.";
+        } else {
+            $pesan = "Gagal menyimpan: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== DATA UNTUK DROPDOWN =====

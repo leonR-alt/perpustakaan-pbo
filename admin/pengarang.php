@@ -8,33 +8,41 @@ $tipe_pesan = "";
 // ===== HAPUS PENGARANG =====
 if (isset($_GET['hapus'])) {
     $id = (int)$_GET['hapus'];
-    $stmt = $koneksi->prepare("DELETE FROM pengarang WHERE id_pengarang = ?");
-    $stmt->bind_param("i", $id);
-    if ($stmt->execute()) {
+    try {
+        $stmt = $koneksi->prepare("DELETE FROM pengarang WHERE id_pengarang = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
         $pesan = "Pengarang berhasil dihapus.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menghapus pengarang.";
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1451) {
+            $pesan = "Gagal menghapus. Pengarang ini masih terhubung dengan buku tertentu.";
+        } else {
+            $pesan = "Gagal menghapus pengarang: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== TAMBAH PENGARANG BARU =====
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_pengarang'])) {
     $nama = $_POST['nama_pengarang'];
 
-    $stmt = $koneksi->prepare("INSERT INTO pengarang (nama_pengarang) VALUES (?)");
-    $stmt->bind_param("s", $nama);
+    try {
+        $stmt = $koneksi->prepare("INSERT INTO pengarang (nama_pengarang) VALUES (?)");
+        $stmt->bind_param("s", $nama);
+        $stmt->execute();
 
-    if ($stmt->execute()) {
         $pesan = "Pengarang baru berhasil ditambahkan.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menyimpan: " . $stmt->error;
+    } catch (mysqli_sql_exception $e) {
+        $pesan = "Gagal menyimpan: " . $e->getMessage();
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== AMBIL DATA UNTUK DITAMPILKAN =====

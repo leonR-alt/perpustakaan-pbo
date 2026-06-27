@@ -8,32 +8,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    // Cari petugas berdasarkan email (prepared statement, aman dari SQL Injection)
-    $stmt = $koneksi->prepare("SELECT id_petugas, nama_petugas, email, password FROM petugas WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    try {
+        // Cari petugas berdasarkan email (prepared statement, aman dari SQL Injection)
+        $stmt = $koneksi->prepare("SELECT id_petugas, nama_petugas, email, password FROM petugas WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-    if ($result->num_rows === 1) {
-        $petugas = $result->fetch_assoc();
+        if ($result->num_rows === 1) {
+            $petugas = $result->fetch_assoc();
 
-        // NOTE: Untuk tugas kuliah ini password dibandingkan langsung (plain text).
-        // Di sistem sungguhan, password HARUS disimpan dengan password_hash()
-        // dan dicek dengan password_verify(). Bisa ditingkatkan nanti kalau diminta.
-        if ($password === $petugas['password']) {
-            $_SESSION['id_petugas'] = $petugas['id_petugas'];
-            $_SESSION['nama_petugas'] = $petugas['nama_petugas'];
-            $_SESSION['email_petugas'] = $petugas['email'];
+            // NOTE: Untuk tugas kuliah ini password dibandingkan langsung (plain text).
+            // Di sistem sungguhan, password HARUS disimpan dengan password_hash()
+            // dan dicek dengan password_verify(). Bisa ditingkatkan nanti kalau diminta.
+            if ($password === $petugas['password']) {
+                $_SESSION['id_petugas'] = $petugas['id_petugas'];
+                $_SESSION['nama_petugas'] = $petugas['nama_petugas'];
+                $_SESSION['email_petugas'] = $petugas['email'];
 
-            header("Location: admin/dashboard.php");
-            exit;
+                header("Location: admin/dashboard.php");
+                exit;
+            } else {
+                $error = "Password salah.";
+            }
         } else {
-            $error = "Password salah.";
+            $error = "Email tidak ditemukan.";
         }
-    } else {
-        $error = "Email tidak ditemukan.";
+    } catch (mysqli_sql_exception $e) {
+        $error = "Terjadi masalah koneksi database: " . $e->getMessage();
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 ?>
 <!DOCTYPE html>

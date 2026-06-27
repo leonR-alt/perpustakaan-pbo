@@ -8,16 +8,22 @@ $tipe_pesan = "";
 // ===== HAPUS ANGGOTA =====
 if (isset($_GET['hapus'])) {
     $id = (int)$_GET['hapus'];
-    $stmt = $koneksi->prepare("DELETE FROM anggota WHERE id_anggota = ?");
-    $stmt->bind_param("i", $id);
-    if ($stmt->execute()) {
+    try {
+        $stmt = $koneksi->prepare("DELETE FROM anggota WHERE id_anggota = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
         $pesan = "Anggota berhasil dihapus.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menghapus. Pastikan anggota ini tidak memiliki riwayat peminjaman.";
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1451) {
+            $pesan = "Gagal menghapus. Anggota ini masih memiliki riwayat peminjaman.";
+        } else {
+            $pesan = "Gagal menghapus: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== TAMBAH ANGGOTA BARU =====
@@ -28,10 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_anggota'])) {
     $tanggal_daftar = $_POST['tanggal_daftar'];
     $nomor_telepon_list = $_POST['nomor_telepon']; // array, bisa lebih dari satu
 
-    $stmt = $koneksi->prepare("INSERT INTO anggota (nama_anggota, alamat, email, tanggal_daftar) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $nama, $alamat, $email, $tanggal_daftar);
+    try {
+        $stmt = $koneksi->prepare("INSERT INTO anggota (nama_anggota, alamat, email, tanggal_daftar) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $nama, $alamat, $email, $tanggal_daftar);
+        $stmt->execute();
 
-    if ($stmt->execute()) {
         $id_anggota_baru = $koneksi->insert_id;
 
         // Simpan semua nomor telepon yang diisi (skip yang kosong)
@@ -47,11 +54,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_anggota'])) {
 
         $pesan = "Anggota baru berhasil ditambahkan.";
         $tipe_pesan = "success";
-    } else {
-        $pesan = "Gagal menyimpan: " . $stmt->error;
+
+    } catch (mysqli_sql_exception $e) {
+        if ($koneksi->errno === 1062) {
+            $pesan = "Gagal: Email tersebut sudah terdaftar.";
+        } else {
+            $pesan = "Gagal menyimpan: " . $e->getMessage();
+        }
         $tipe_pesan = "danger";
+    } finally {
+        if (isset($stmt)) $stmt->close();
     }
-    $stmt->close();
 }
 
 // ===== AMBIL DATA UNTUK DITAMPILKAN =====
